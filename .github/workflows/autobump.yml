@@ -1,0 +1,32 @@
+name: autobump
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bump to latest upstream commit
+        run: |
+          set -euo pipefail
+          resp=$(curl -sf https://api.github.com/repos/oracle/bpftune/commits/main)
+          sha=$(echo "$resp" | jq -r .sha)
+          date=$(echo "$resp" | jq -r .commit.committer.date | cut -dT -f1 | tr -d -)
+          cur=$(grep -oP '(?<=^%global commit )[0-9a-f]{40}' bpftune.spec)
+          if [ "$sha" = "$cur" ]; then
+            echo "Already at $sha"
+            exit 0
+          fi
+          sed -i "s/^%global commitdate .*/%global commitdate $date/" bpftune.spec
+          sed -i "s/^%global commit .*/%global commit $sha/" bpftune.spec
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore: bump bpftune to ${sha:0:7} ($date)"
+          git push
