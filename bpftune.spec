@@ -4,16 +4,15 @@
 
 Name:           bpftune
 Version:        0.4.%{commitdate}.git.%{shortcommit}
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        BPF/tracing tools for auto-tuning Linux
 
-License:        GPLv2 WITH Linux-syscall-note
+License:        GPL-2.0-only WITH Linux-syscall-note
 URL:            https://github.com/oracle/bpftune
 Source0:        %{url}/archive/%{commit}/%{name}-%{commit}.tar.gz
 
 BuildRequires:  gcc
 BuildRequires:  make
-BuildRequires:  git
 BuildRequires:  libbpf-devel >= 0.6
 BuildRequires:  libcap-devel
 BuildRequires:  bpftool >= 4.18
@@ -24,10 +23,6 @@ BuildRequires:  llvm >= 11
 BuildRequires:  llvm-libs >= 11
 BuildRequires:  python3-docutils
 BuildRequires:  systemd-rpm-macros
-
-Requires:       libbpf >= 0.6
-Requires:       libnl3
-Requires:       libcap
 
 %description
 Service consisting of daemon (bpftune) and plugins which
@@ -52,26 +47,25 @@ developing BPF shared object tuners that use %{name}.
 %make_build
 
 %install
-rm -rf %{buildroot}
 %make_install
 rm -f %{buildroot}%{_sysconfdir}/init.d/%{name}
+rm -f %{buildroot}%{_sysconfdir}/ld.so.conf.d/libbpftune.conf
 sed -i 's|/usr/sbin/bpftune|%{_sbindir}/bpftune|g' %{buildroot}%{_unitdir}/%{name}.service
+soname=$(basename %{buildroot}%{_libdir}/libbpftune.so.0.4.*)
+ln -sf "$soname" %{buildroot}%{_libdir}/libbpftune.so
 
 %post
-/sbin/ldconfig
 %systemd_post bpftune.service
 
 %preun
 %systemd_preun bpftune.service
 
 %postun
-/sbin/ldconfig
 %systemd_postun_with_restart bpftune.service
 
 %files
 %license LICENSE.txt
 %doc README.md
-%{_sysconfdir}/ld.so.conf.d/libbpftune.conf
 %config(noreplace) %{_sysconfdir}/conf.d/bpftune
 %{_sbindir}/bpftune
 %{_unitdir}/bpftune.service
@@ -95,6 +89,11 @@ sed -i 's|/usr/sbin/bpftune|%{_sbindir}/bpftune|g' %{buildroot}%{_unitdir}/%{nam
 %{_includedir}/bpftune/
 
 %changelog
+* Fri Jul 03 2026 ElXreno <elxreno@gmail.com> - 0.4.20260226.git.4712347-3
+- Follow Fedora packaging guidelines: SPDX license tag, drop obsolete
+  ldconfig scriptlets and useless ld.so.conf.d file, drop redundant
+  explicit library Requires, make devel .so a proper symlink
+
 * Fri Jul 03 2026 ElXreno <elxreno@gmail.com> - 0.4.20260226.git.4712347-2
 - Drop openrc init script (bogus /sbin/openrc-run dependency on Fedora)
 - Fix systemd unit ExecStart path for sbin-merged Fedora
